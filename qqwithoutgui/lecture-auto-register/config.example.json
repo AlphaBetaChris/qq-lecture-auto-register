@@ -1,0 +1,112 @@
+{
+  "groupId": "1029426838 495704670",
+  "groupIds": [
+    "1029426838",
+    "495704670"
+  ],
+  "student": {
+    "name": "张洋",
+    "studentId": "2025305173",
+    "major": "MPacc",
+    "grade": "25"
+  },
+  "oneBot": {
+    "host": "127.0.0.1",
+    "port": 39211,
+    "path": "/onebot"
+  },
+  "dashboard": {
+    "host": "127.0.0.1",
+    "port": 39212
+  },
+  "qq": {
+    "uin": "",
+    "quickLogin": true
+  },
+  "browser": {
+    "headless": true,
+    "slowMo": 0,
+    "profileDir": "./lecture-auto-register/browser-profile",
+    "executablePath": ""
+  },
+  "submit": true,
+  "skipDuplicateForms": false,
+  "messageFilters": {
+    "requireTencentDocsFormLink": true,
+    "keywordsAny": [
+      "腾讯文档",
+      "讲座",
+      "报名"
+    ]
+  },
+  "formFields": [
+    {
+      "name": "姓名",
+      "labels": [
+        "姓名",
+        "名字"
+      ],
+      "valueFrom": "student.name"
+    },
+    {
+      "name": "学号",
+      "labels": [
+        "学号",
+        "学生号",
+        "学籍号"
+      ],
+      "valueFrom": "student.studentId"
+    },
+    {
+      "name": "专业",
+      "labels": [
+        "专业",
+        "专业信息",
+        "所学专业",
+        "就读专业"
+      ],
+      "valueFrom": "student.major",
+      "optional": true,
+      "preferChoice": true
+    },
+    {
+      "name": "年级",
+      "labels": [
+        "年级",
+        "入学年级",
+        "所在年级",
+        "学生年级"
+      ],
+      "valueFrom": "student.grade",
+      "optional": true,
+      "preferChoice": true
+    }
+  ],
+  "startButtonText": [
+    "开始填写",
+    "立即填写",
+    "填写问卷",
+    "继续填写"
+  ],
+  "submitButtonText": [
+    "提交",
+    "确认提交",
+    "完成"
+  ],
+  "confirmButtonText": [
+    "确定",
+    "确认",
+    "确认提交",
+    "继续提交",
+    "提交",
+    "好的"
+  ],
+  "successText": [
+    "提交成功",
+    "已提交",
+    "报名成功",
+    "感谢填写",
+    "不能重复提交",
+    "你已填写"
+  ]
+}

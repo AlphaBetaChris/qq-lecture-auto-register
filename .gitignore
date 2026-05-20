@@ -1,0 +1,26 @@
+# Dependencies and generated runtime files
+qqwithoutgui/node_modules/
+qqwithoutgui/node.exe
+qqwithoutgui/lecture-auto-register/config.json
+qqwithoutgui/lecture-auto-register/browser-profile/
+qqwithoutgui/lecture-auto-register/state.json
+
+# Local account/session/cache files
+qqwithoutgui/config/*.json
+!qqwithoutgui/config/*.example.json
+qqwithoutgui/cache/
+qqwithoutgui/logs/
+qqwithoutgui/guild*.db*
+qqwithoutgui/conout-*.js
+
+# Local helper/test scratch files
+out*.txt
+output.txt
+test_*.bat
+test_*.js
+qqwithoutgui/fake_qq.bat
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.log

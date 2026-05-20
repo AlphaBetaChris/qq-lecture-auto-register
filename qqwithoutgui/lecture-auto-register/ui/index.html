@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>讲座自动报名助手</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>讲座自动报名助手</h1>
+          <p>监听QQ群消息，捕获腾讯文档问卷后自动填写并提交。</p>
+        </div>
+        <div class="status-strip">
+          <span id="listenerPill" class="pill neutral">未监听</span>
+          <span id="napcatPill" class="pill neutral">QQ未连接</span>
+          <span id="docsPill" class="pill neutral">腾讯文档待登录</span>
+        </div>
+      </header>
+
+      <section class="layout">
+        <div class="panel setup-panel">
+          <div class="panel-head">
+            <h2>报名信息</h2>
+            <span id="saveState" class="muted">未保存</span>
+          </div>
+          <form id="configForm" class="form-grid">
+            <label>
+              <span>QQ群号</span>
+              <input id="groupId" name="groupId" autocomplete="off" placeholder="1029426838 495704670">
+            </label>
+            <label>
+              <span>姓名</span>
+              <input id="name" name="name" autocomplete="name" placeholder="张洋">
+            </label>
+            <label>
+              <span>学号</span>
+              <input id="studentId" name="studentId" autocomplete="off" placeholder="2025305173">
+            </label>
+            <label>
+              <span>专业</span>
+              <input id="major" name="major" autocomplete="off" placeholder="MPacc">
+            </label>
+            <label>
+              <span>消息关键词</span>
+              <input id="keywords" name="keywords" autocomplete="off" placeholder="腾讯文档 讲座 报名">
+            </label>
+            <label class="switch-line">
+              <input id="submit" name="submit" type="checkbox">
+              <span>自动点击提交和二次确认</span>
+            </label>
+            <label class="switch-line">
+              <input id="dryRun" name="dryRun" type="checkbox">
+              <span>预览模式，只填写不提交</span>
+            </label>
+            <label class="switch-line">
+              <input id="skipDuplicateForms" name="skipDuplicateForms" type="checkbox">
+              <span>重复表单不填写</span>
+            </label>
+          </form>
+
+          <div class="actions">
+            <button id="saveBtn" class="secondary" type="button">保存配置</button>
+            <button id="startBtn" class="primary" type="button">保存并开始监听</button>
+            <button id="stopBtn" class="danger" type="button">停止监听</button>
+          </div>
+        </div>
+
+        <div class="panel login-panel">
+          <div class="panel-head">
+            <h2>登录状态</h2>
+            <span class="muted">本机持久化</span>
+          </div>
+          <div class="login-grid">
+            <div class="login-row">
+              <div>
+                <strong>QQ / NapCat</strong>
+                <p>也可以在项目根目录直接双击“QQ登录-生成二维码.bat”；下方账号可一键快速登录。</p>
+              </div>
+              <div class="button-stack">
+                <button id="qqBtn" class="secondary" type="button">打开登录脚本</button>
+                <button id="qqRestartBtn" class="danger" type="button">关闭NapCat QQ并重新打开脚本</button>
+              </div>
+            </div>
+            <div class="account-picker">
+              <label>
+                <span>登录QQ账号</span>
+                <select id="qqUin"></select>
+              </label>
+              <button id="refreshAccountsBtn" class="secondary" type="button">刷新账号</button>
+              <label class="switch-line quick-switch">
+                <input id="qqQuickLogin" type="checkbox">
+                <span>使用快速登录</span>
+              </label>
+            </div>
+            <div id="accountsList" class="account-list"></div>
+            <div id="qrBox" class="qr-box hidden">
+              <img id="qrImage" alt="QQ登录二维码">
+              <span id="qrHint">请用手机QQ扫码登录</span>
+            </div>
+            <div class="login-row">
+              <div>
+                <strong>腾讯文档</strong>
+                <p>登录保存在独立浏览器配置目录，下次启动会继续复用。</p>
+              </div>
+              <button id="docsBtn" class="secondary" type="button">打开腾讯文档登录</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel monitor-panel">
+        <div class="panel-head">
+          <h2>实时监听</h2>
+          <span id="lastSeen" class="muted">尚未收到群消息</span>
+        </div>
+        <div id="lastLink" class="last-link">等待捕获问卷链接</div>
+        <div class="monitor-grid">
+          <div>
+            <h3>运行日志</h3>
+            <div id="logs" class="log-list"></div>
+          </div>
+          <div>
+            <h3>处理记录</h3>
+            <div id="links" class="link-list"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <div id="toast" class="toast hidden"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
