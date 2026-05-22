@@ -23,6 +23,7 @@ const runtime = {
   config: undefined,
   state: undefined,
   eventClients: new Set(),
+  oneBotClients: new Set(),
   logs: [],
   oneBotServer: undefined,
   dashboardServer: undefined,
@@ -54,6 +55,45 @@ function broadcast(payload) {
 
 function broadcastStatus() {
   broadcast({ type: 'status', status: publicStatus() });
+}
+
+function sendOneBotAction(action, params = {}, timeout = 8000) {
+  const client = [...runtime.oneBotClients].find((item) => item.readyState === WebSocket.OPEN);
+  if (!client) throw new Error('NapCat 尚未连接，无法查询 OneBot 数据。');
+
+  const echo = `lecture-auto-register-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const payload = { action, params, echo };
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      client.off('message', onMessage);
+      reject(new Error(`OneBot action ${action} 查询超时。`));
+    }, timeout);
+
+    function onMessage(data) {
+      let event;
+      try {
+        event = JSON.parse(data.toString());
+      } catch {
+        return;
+      }
+      if (event.echo !== echo) return;
+      clearTimeout(timer);
+      client.off('message', onMessage);
+      if (event.status === 'failed' || event.retcode && event.retcode !== 0) {
+        reject(new Error(event.message || event.wording || `OneBot action ${action} 失败。`));
+        return;
+      }
+      resolve(event);
+    }
+
+    client.on('message', onMessage);
+    client.send(JSON.stringify(payload), (error) => {
+      if (!error) return;
+      clearTimeout(timer);
+      client.off('message', onMessage);
+      reject(error);
+    });
+  });
 }
 
 function publicStatus() {
@@ -621,22 +661,6 @@ async function loginTencentDocs(config) {
 }
 
 async function clickFirstMatchingButton(target, labels) {
-  for (const label of labels) {
-    const roleButton = target.getByRole('button', { name: new RegExp(label, 'i') }).first();
-    if (await roleButton.isVisible({ timeout: 800 }).catch(() => false)) {
-      await roleButton.click({ force: true }).catch(() => {});
-      return label;
-    }
-
-    const textButton = target.locator('button, [role="button"], input[type="button"], input[type="submit"]').filter({
-      hasText: new RegExp(label, 'i')
-    }).first();
-    if (await textButton.isVisible({ timeout: 800 }).catch(() => false)) {
-      await textButton.click({ force: true }).catch(() => {});
-      return label;
-    }
-  }
-
   const clicked = await target.evaluate((buttonLabels) => {
     function visible(el) {
       const rect = el.getBoundingClientRect();
@@ -664,6 +688,22 @@ async function clickFirstMatchingButton(target, labels) {
   }, labels).catch(() => '');
 
   if (clicked) return clicked;
+
+  for (const label of labels) {
+    const roleButton = target.getByRole('button', { name: new RegExp(label, 'i') }).first();
+    if (await roleButton.isVisible({ timeout: 80 }).catch(() => false)) {
+      await roleButton.click({ force: true }).catch(() => {});
+      return label;
+    }
+
+    const textButton = target.locator('button, [role="button"], input[type="button"], input[type="submit"]').filter({
+      hasText: new RegExp(label, 'i')
+    }).first();
+    if (await textButton.isVisible({ timeout: 80 }).catch(() => false)) {
+      await textButton.click({ force: true }).catch(() => {});
+      return label;
+    }
+  }
   return '';
 }
 
@@ -685,7 +725,7 @@ async function waitForTextInPage(page, labels, timeout = 10000) {
         .catch(() => false);
       if (matched) return true;
     }
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(200);
   }
   return false;
 }
@@ -695,7 +735,7 @@ async function maybeClickStart(page, config) {
     const clicked = await clickFirstMatchingButton(frame, config.startButtonText ?? []);
     if (clicked) {
       log(`已点击入口按钮：${clicked}`);
-      await page.waitForTimeout(1200);
+      await page.waitForTimeout(250);
       return true;
     }
   }
@@ -704,7 +744,7 @@ async function maybeClickStart(page, config) {
 
 async function waitForForm(page) {
   await page.waitForLoadState('domcontentloaded').catch(() => {});
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(150);
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
     for (const frame of page.frames()) {
@@ -718,7 +758,7 @@ async function waitForForm(page) {
       }).catch(() => false);
       if (hasControl) return;
     }
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(200);
   }
 }
 
@@ -977,7 +1017,7 @@ async function submitForm(page, config, dryRun) {
   }
 
   await page.keyboard.press('Escape').catch(() => {});
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(80);
 
   const submitClicked = await clickFirstMatchingButtonInPage(page, config.submitButtonText ?? ['提交']);
   if (!submitClicked) {
@@ -987,7 +1027,7 @@ async function submitForm(page, config, dryRun) {
 
   const confirmLabels = config.confirmButtonText ?? ['确定', '确认', '确认提交', '提交'];
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.waitForTimeout(attempt === 0 ? 900 : 600);
+    await page.waitForTimeout(attempt === 0 ? 250 : 250);
     if (await waitForTextInPage(page, config.successText ?? [], 800)) {
       return { submitted: true };
     }
@@ -995,8 +1035,8 @@ async function submitForm(page, config, dryRun) {
     const confirmClicked = await clickFirstMatchingButtonInPage(page, confirmLabels);
     if (confirmClicked) {
       log(`已点击二次确认按钮：${confirmClicked}`);
-      await page.waitForTimeout(1200);
-      if (await waitForTextInPage(page, config.successText ?? [], 1500)) {
+      await page.waitForTimeout(250);
+      if (await waitForTextInPage(page, config.successText ?? [], 900)) {
         return { submitted: true };
       }
     }
@@ -1007,6 +1047,7 @@ async function submitForm(page, config, dryRun) {
 }
 
 async function handleFormLink(config, state, url, options = {}) {
+  const startedAt = Date.now();
   const normalized = normalizeUrl(url);
   const existing = state.links[normalized];
   const skipDuplicateForms = options.skipDuplicateForms ?? config.skipDuplicateForms !== false;
@@ -1046,7 +1087,8 @@ async function handleFormLink(config, state, url, options = {}) {
       lastError: undefined
     };
     await writeJson(statePath, state);
-    log(result.submitted ? '报名提交完成。' : '预览填写完成。');
+    const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+    log(result.submitted ? `报名提交完成，用时 ${elapsedSeconds} 秒。` : `预览填写完成，用时 ${elapsedSeconds} 秒。`);
   } catch (error) {
     state.links[normalized] = {
       ...state.links[normalized],
@@ -1090,10 +1132,12 @@ async function startOneBotListener(config, state, options = {}) {
   };
 
   wss.on('connection', (ws) => {
+    runtime.oneBotClients.add(ws);
     runtime.napcatConnected = true;
     broadcastStatus();
     log('NapCat 已连接自动报名脚本。');
     ws.on('close', () => {
+      runtime.oneBotClients.delete(ws);
       runtime.napcatConnected = false;
       broadcastStatus();
       log('NapCat 已断开连接，等待自动重连。');
@@ -1281,6 +1325,22 @@ async function startDashboard(config, state, options = {}) {
     try {
       const accounts = await refreshRecentQQAccounts();
       res.json({ ok: true, accounts, status: publicStatus() });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  app.get('/api/qq/friend/:uin', async (req, res) => {
+    try {
+      const uin = String(req.params.uin ?? '').trim();
+      if (!/^\d{5,12}$/.test(uin)) {
+        res.status(400).json({ ok: false, error: '请提供有效 QQ 号。' });
+        return;
+      }
+      const response = await sendOneBotAction('get_friend_list');
+      const friends = Array.isArray(response.data) ? response.data : [];
+      const friend = friends.find((item) => String(item.user_id) === uin);
+      res.json({ ok: true, found: Boolean(friend), friend });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
     }
