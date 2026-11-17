@@ -64,16 +64,20 @@ flowchart TB
 ## 核心代码位置
 
 ~~~text
-qqwithoutgui/
-├── lecture-auto-register/
-│   ├── index.mjs              # 监听、队列、表单填写、提交与控制台 API
-│   ├── config.example.json    # 脱敏配置模板
-│   └── ui/                    # 本地 Web 控制台
-├── package.json               # lecture:* 启动脚本与依赖
-└── launcher-user.bat          # NapCat / QQ 启动入口
+qq-lecture-auto-register/
+├── app/                       # 自研应用：监听、队列、自动填报与控制台
+│   ├── index.mjs
+│   ├── config.example.json
+│   └── ui/
+├── scripts/                   # 登录、启动与停止辅助脚本
+├── vendor/napcat/             # 隔离存放的 NapCat 第三方运行环境
+├── docs/                      # 运行环境说明
+├── start.bat                  # Windows 一键启动
+├── stop.bat                   # Windows 一键停止
+└── package.json               # 应用依赖与统一命令入口
 ~~~
 
-仓库包含 NapCat 运行环境；本项目的主要自研代码集中在 **qqwithoutgui/lecture-auto-register/**。
+自研应用与第三方运行环境分开存放：主要实现集中在 `app/`，`vendor/napcat/` 仅用于 QQ 登录和 OneBot 事件转发。
 
 ## 快速开始
 
@@ -87,17 +91,16 @@ qqwithoutgui/
 ### 1. 安装依赖
 
 ~~~powershell
-cd qqwithoutgui
 npm install
 ~~~
 
 ### 2. 创建本地配置
 
 ~~~powershell
-Copy-Item lecture-auto-register\config.example.json lecture-auto-register\config.json
+Copy-Item app\config.example.json app\config.json
 ~~~
 
-编辑 config.json，至少填写：
+编辑 `app/config.json`，至少填写：
 
 - groupIds：需要监听的 QQ 群
 - student.name：姓名
@@ -111,7 +114,7 @@ Copy-Item lecture-auto-register\config.example.json lecture-auto-register\config
 在仓库根目录运行：
 
 ~~~powershell
-.\一键启动自动报名助手.bat
+.\start.bat
 ~~~
 
 默认控制台地址：**http://127.0.0.1:39212**
@@ -121,17 +124,17 @@ Copy-Item lecture-auto-register\config.example.json lecture-auto-register\config
 ## 常用运行方式
 
 ~~~powershell
-cd qqwithoutgui
-
 # 启动本地控制台
-npm run lecture:app
+npm run app
 
 # 仅启动监听
-npm run lecture:auto
+npm run listen
 
 # 单独打开腾讯文档登录流程
-npm run lecture:login
+npm run login:docs
 ~~~
+
+停止所有相关进程可运行 `stop.bat`。更细的辅助入口位于 `scripts/`。
 
 ## 隐私与安全
 

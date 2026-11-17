@@ -1,0 +1,21 @@
+{
+  "name": "qq-lecture-auto-register",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "QQ group listener and Tencent Docs form automation assistant",
+  "scripts": {
+    "app": "node app/index.mjs --app",
+    "listen": "node app/index.mjs",
+    "login:docs": "node app/index.mjs --login",
+    "check": "node --check app/index.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.0.0",
+    "playwright-core": "^1.60.0",
+    "ws": "^8.18.3"
+  }
+}

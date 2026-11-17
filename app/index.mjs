@@ -11,7 +11,8 @@ import { chromium } from 'playwright-core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '..');
+const repositoryRoot = path.resolve(__dirname, '..');
+const runtimeRoot = path.join(repositoryRoot, 'vendor', 'napcat');
 const configPath = path.join(__dirname, 'config.json');
 const statePath = path.join(__dirname, 'state.json');
 
@@ -128,12 +129,12 @@ async function writeJson(file, data) {
   await fs.writeFile(file, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 }
 
-function resolveProjectPath(filePath) {
-  return path.resolve(projectRoot, filePath ?? '');
+function resolveAppPath(filePath) {
+  return path.resolve(__dirname, filePath ?? '');
 }
 
 function docsProfileDir(config) {
-  return resolveProjectPath(config?.browser?.profileDir ?? './lecture-auto-register/browser-profile');
+  return resolveAppPath(config?.browser?.profileDir ?? './browser-profile');
 }
 
 function docsProfileExists(config) {
@@ -142,7 +143,7 @@ function docsProfileExists(config) {
 }
 
 function qqQrPath() {
-  return path.join(projectRoot, 'cache', 'qrcode.png');
+  return path.join(runtimeRoot, 'cache', 'qrcode.png');
 }
 
 function qqQrStatus() {
@@ -193,7 +194,7 @@ function dedupeQQAccounts(accounts) {
 }
 
 async function getNapCatWebUiCredential() {
-  const webuiPath = path.join(projectRoot, 'config', 'webui.json');
+  const webuiPath = path.join(runtimeRoot, 'config', 'webui.json');
   const webui = await readJson(webuiPath, {});
   if (!webui.token) return undefined;
   const host = webui.host === '::' || webui.host === '0.0.0.0' ? '127.0.0.1' : (webui.host || '127.0.0.1');
@@ -236,7 +237,7 @@ async function fetchNapCatQQAccounts() {
 async function getFallbackQQAccounts(config) {
   const accounts = [];
   if (config?.qq?.uin) accounts.push({ uin: config.qq.uin, nickName: '当前配置' });
-  const configDir = path.join(projectRoot, 'config');
+  const configDir = path.join(runtimeRoot, 'config');
   const files = await fs.readdir(configDir).catch(() => []);
   for (const file of files) {
     const match = file.match(/^(?:napcat|onebot11|napcat_protocol)_(\d+)\.json$/);
@@ -275,7 +276,7 @@ async function ensureOneBotReverseWsConfigForUin(uin, config = runtime.config) {
   const normalizedUin = String(uin ?? '').trim();
   if (!/^\d{5,12}$/.test(normalizedUin)) return false;
 
-  const file = path.join(projectRoot, 'config', `onebot11_${normalizedUin}.json`);
+  const file = path.join(runtimeRoot, 'config', `onebot11_${normalizedUin}.json`);
   const data = await readJson(file, {
     network: {
       httpServers: [],
@@ -321,7 +322,7 @@ async function ensureOneBotReverseWsConfigForUin(uin, config = runtime.config) {
 }
 
 async function ensureOneBotReverseWsConfigs(uins = [], config = runtime.config) {
-  const configDir = path.join(projectRoot, 'config');
+  const configDir = path.join(runtimeRoot, 'config');
   const files = await fs.readdir(configDir).catch(() => []);
   const detected = files
     .map((file) => file.match(/^onebot11_(\d+)\.json$/)?.[1])
@@ -401,8 +402,8 @@ async function runPowerShell(script) {
 async function stopQqForFreshLogin() {
   const script = `
 $ErrorActionPreference = 'SilentlyContinue'
-$projectRoot = '${escapePowerShellSingleQuoted(projectRoot)}'
-$bootExe = '${escapePowerShellSingleQuoted(path.join(projectRoot, 'NapCatWinBootMain.exe'))}'
+$runtimeRoot = '${escapePowerShellSingleQuoted(runtimeRoot)}'
+$bootExe = '${escapePowerShellSingleQuoted(path.join(runtimeRoot, 'NapCatWinBootMain.exe'))}'
 $processes = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -in @('NapCatWinBootMain.exe', 'QQ.exe') })
 $byParent = @{}
 foreach ($process in $processes) {
@@ -420,8 +421,8 @@ foreach ($process in $processes) {
   $isProjectBoot = $false
   if ($process.Name -eq 'NapCatWinBootMain.exe') {
     $isProjectBoot = $exe.Equals($bootExe, [System.StringComparison]::OrdinalIgnoreCase) -or
-      $exe.StartsWith($projectRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
-      $cmd.Contains($projectRoot)
+      $exe.StartsWith($runtimeRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+      $cmd.Contains($runtimeRoot)
   }
   if ($isProjectBoot) {
     $bootPids += [int]$process.ProcessId
@@ -464,7 +465,7 @@ foreach ($targetProcessId in @($targets)) {
 }
 
 async function startNapCatLauncher({ restart = false, uin, quickLogin } = {}) {
-  const launcherPath = path.join(projectRoot, 'launcher-user.bat');
+  const launcherPath = path.join(runtimeRoot, 'launcher-user.bat');
   if (!fsSync.existsSync(launcherPath)) {
     throw new Error('没有找到 launcher-user.bat，无法启动 QQ/NapCat。');
   }
@@ -478,7 +479,7 @@ async function startNapCatLauncher({ restart = false, uin, quickLogin } = {}) {
   const quickLoginUin = shouldQuickLogin ? String(uin ?? runtime.config?.qq?.uin ?? '').trim() : '';
   await ensureOneBotReverseWsConfigs(quickLoginUin ? [quickLoginUin] : [], runtime.config);
   
-  let command = `start "" /D "${projectRoot}" "${launcherPath}"`;
+  let command = `start "" /D "${runtimeRoot}" "${launcherPath}"`;
   if (quickLoginUin) {
     command += ` -q ${quickLoginUin}`;
   }
@@ -510,7 +511,7 @@ async function openTencentDocsLogin(config) {
   if (!executablePath) {
     throw new Error('未找到 Edge 或 Chrome，请在 config.json 里填写 browser.executablePath。');
   }
-  const profileDir = path.resolve(projectRoot, config.browser?.profileDir ?? './lecture-auto-register/browser-profile');
+  const profileDir = resolveAppPath(config.browser?.profileDir ?? './browser-profile');
   await fs.mkdir(profileDir, { recursive: true });
 
   // 专用登录上下文：强制 headless: false，不存入全局 browserContext
@@ -620,10 +621,10 @@ async function getBrowserContext(config) {
   if (browserContext) return browserContext;
   const executablePath = findBrowserExecutable(config);
   if (!executablePath) {
-    throw new Error('未找到 Edge 或 Chrome，请在 lecture-auto-register/config.json 里填写 browser.executablePath。');
+    throw new Error('未找到 Edge 或 Chrome，请在 app/config.json 里填写 browser.executablePath。');
   }
 
-  const profileDir = path.resolve(projectRoot, config.browser?.profileDir ?? './lecture-auto-register/browser-profile');
+  const profileDir = resolveAppPath(config.browser?.profileDir ?? './browser-profile');
   await fs.mkdir(profileDir, { recursive: true });
 
   browserContext = await chromium.launchPersistentContext(profileDir, {
@@ -655,7 +656,7 @@ async function waitForEnter(prompt) {
 async function loginTencentDocs(config) {
   await openTencentDocsLogin(config);
   const context = await getBrowserContext(config);
-  log('请在浏览器里完成腾讯文档登录，登录状态会保存在 lecture-auto-register/browser-profile。');
+  log('请在浏览器里完成腾讯文档登录，登录状态会保存在 app/browser-profile。');
   await waitForEnter('登录完成后，回到这个窗口按回车继续...');
   await context.close();
 }
@@ -1180,7 +1181,7 @@ async function startOneBotListener(config, state, options = {}) {
     runtime.oneBotServer = undefined;
     broadcastStatus();
     if (error.code === 'EADDRINUSE') {
-      log(`端口 ${port} 已被占用。请先关闭正在运行的 start-lecture-auto-register.bat 窗口，再重新启动。`);
+      log(`端口 ${port} 已被占用。请先运行 stop.bat，再重新启动。`);
       process.exitCode = 1;
       return;
     }

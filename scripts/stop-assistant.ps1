@@ -12,7 +12,7 @@ Get-WmiObject Win32_Process | Where-Object {
 
 Write-Host "[2/4] 正在关闭后台 Node 服务..."
 Get-WmiObject Win32_Process | Where-Object {
-    $_.Name -eq 'node.exe' -and $_.CommandLine -like '*lecture-auto-register*'
+    $_.Name -eq 'node.exe' -and $_.CommandLine -like '*app\index.mjs*'
 } | ForEach-Object {
     Write-Host "  关闭 node.exe PID=$($_.ProcessId)"
     Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
@@ -23,7 +23,8 @@ Write-Host "[3/4] 正在关闭相关终端窗口..."
 # 先找到目标 cmd.exe 的 PID
 $targetCmdPids = Get-WmiObject Win32_Process | Where-Object {
     $_.Name -eq 'cmd.exe' -and (
-        $_.CommandLine -like '*run-auto-register-app*' -or
+        $_.CommandLine -like '*npm run app*' -or
+        $_.CommandLine -like '*app\index.mjs*' -or
         $_.CommandLine -like '*launcher-user*'
     )
 } | Select-Object -ExpandProperty ProcessId
