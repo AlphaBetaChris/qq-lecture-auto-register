@@ -1,69 +1,161 @@
-# QQ Lecture Auto Register
+# QQ 讲座自动报名助手
 
-基于 NapCat、OneBot 和腾讯文档表单自动化的 QQ 群讲座报名助手。
+> 面向 Windows 的 QQ 群讲座报名自动化工具：监听群消息，识别腾讯文档表单，自动填写并提交，同时保留可观察、可回退的本地控制台。
 
-它可以监听指定 QQ 群消息，捕获腾讯文档问卷链接，自动填写姓名、学号、专业、年级等字段，并完成提交和二次确认。项目当前面向 Windows 环境。
+![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-browser%20automation-2EAD33?logo=playwright&logoColor=white)
+![OneBot](https://img.shields.io/badge/OneBot-NapCat-4A90E2)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 
-## 功能
+## 项目概览
 
-- 监听一个或多个 QQ 群。
-- 自动识别腾讯文档表单链接。
-- 自动填写姓名、学号。
-- 可选填写或选择专业，例如 `MPacc`。
-- 可选选择年级，例如匹配 `25`、`2025级`、`25级`。
-- 支持重复表单策略。
-- 本地 Web 控制台显示登录状态、监听状态、日志和处理记录。
+讲座报名通常具有名额有限、发布时间不固定、重复填写成本高等特点。本项目把完整流程收敛为：
 
-## 本地运行
+~~~mermaid
+flowchart LR
+    A[监听指定 QQ 群] --> B[筛选消息与腾讯文档链接]
+    B --> C[打开表单]
+    C --> D[匹配并填写字段]
+    D --> E{预览模式?}
+    E -- 是 --> F[保留页面/记录结果]
+    E -- 否 --> G[提交并处理二次确认]
+    G --> H[记录成功或失败状态]
+~~~
 
-1. 安装 Node.js。
-2. 在 `qqwithoutgui` 目录安装依赖：
+工具不会绕过表单权限，也不会替代账号登录；它只在用户本机、基于已有登录态完成重复操作自动化。
 
-```powershell
+## 核心能力
+
+| 能力 | 说明 |
+|---|---|
+| 多群监听 | 通过 NapCat + OneBot 反向 WebSocket 监听一个或多个指定群 |
+| 消息过滤 | 支持关键词过滤，并仅处理腾讯文档表单链接 |
+| 自动填报 | 使用 Playwright 匹配姓名、学号、专业、年级等字段 |
+| 提交确认 | 自动识别提交按钮、二次确认按钮与成功提示 |
+| 重复策略 | 可选择跳过已提交表单，或允许再次填写 |
+| 安全预览 | Dry-run 模式只填写不提交，便于首次验证 |
+| 状态追踪 | 记录 processing、submitted、filled_dry_run、failed 等状态 |
+| 本地控制台 | 展示 QQ 登录、监听状态、日志、处理记录和常用配置 |
+
+## 设计亮点
+
+- **串行任务队列**：群内短时间出现多个链接时依次处理，减少浏览器上下文与登录态冲突。
+- **配置驱动字段匹配**：通过字段别名、可选项和按钮文案配置适配不同问卷。
+- **失败可定位**：记录表单 URL、处理状态、耗时与错误原因，便于重试和排查。
+- **登录态复用**：使用独立浏览器 profile 保存腾讯文档登录态，不在代码中写入账号密码。
+- **隐私隔离**：配置、Cookie、Token、二维码、日志和处理记录均保留在本地并被 Git 忽略。
+
+## 技术架构
+
+~~~mermaid
+flowchart TB
+    QQ[QQ / NapCat] -->|OneBot WebSocket| Listener[消息监听与过滤]
+    Listener --> Queue[串行任务队列]
+    Queue --> Browser[Playwright 浏览器自动化]
+    Browser --> Docs[腾讯文档表单]
+    Listener --> State[本地状态记录]
+    Browser --> State
+    Dashboard[Express Web 控制台] <--> Listener
+    Dashboard <--> State
+~~~
+
+主要技术：Node.js、Express、WebSocket、Playwright Core、NapCat、OneBot 11。
+
+## 核心代码位置
+
+~~~text
+qqwithoutgui/
+├── lecture-auto-register/
+│   ├── index.mjs              # 监听、队列、表单填写、提交与控制台 API
+│   ├── config.example.json    # 脱敏配置模板
+│   └── ui/                    # 本地 Web 控制台
+├── package.json               # lecture:* 启动脚本与依赖
+└── launcher-user.bat          # NapCat / QQ 启动入口
+~~~
+
+仓库包含 NapCat 运行环境；本项目的主要自研代码集中在 **qqwithoutgui/lecture-auto-register/**。
+
+## 快速开始
+
+### 环境要求
+
+- Windows 10/11
+- Node.js 18+
+- Edge 或 Chrome
+- 可正常登录的 QQ 与腾讯文档账号
+
+### 1. 安装依赖
+
+~~~powershell
+cd qqwithoutgui
 npm install
-```
+~~~
 
-3. 复制配置模板：
+### 2. 创建本地配置
 
-```powershell
-Copy-Item qqwithoutgui\lecture-auto-register\config.example.json qqwithoutgui\lecture-auto-register\config.json
-```
+~~~powershell
+Copy-Item lecture-auto-register\config.example.json lecture-auto-register\config.json
+~~~
 
-4. 按需修改 `qqwithoutgui\lecture-auto-register\config.json`。
-5. 启动：
+编辑 config.json，至少填写：
 
-```powershell
+- groupIds：需要监听的 QQ 群
+- student.name：姓名
+- student.studentId：学号
+- student.major / student.grade：可选字段
+- submit：是否自动提交
+- skipDuplicateForms：是否跳过已提交表单
+
+### 3. 启动
+
+在仓库根目录运行：
+
+~~~powershell
 .\一键启动自动报名助手.bat
-```
+~~~
 
-默认控制台地址：
+默认控制台地址：**http://127.0.0.1:39212**
 
-```text
-http://127.0.0.1:39212
-```
+首次使用建议先开启 Dry-run，确认字段匹配正确后再启用自动提交。
 
-## 配置说明
+## 常用运行方式
 
-主要配置在：
+~~~powershell
+cd qqwithoutgui
 
-```text
-qqwithoutgui/lecture-auto-register/config.json
-```
+# 启动本地控制台
+npm run lecture:app
 
-常用字段：
+# 仅启动监听
+npm run lecture:auto
 
-- `groupIds`：监听的 QQ 群号列表。
-- `student.name`：姓名。
-- `student.studentId`：学号。
-- `student.major`：专业选择关键词。
-- `student.grade`：年级选择关键词。
-- `submit`：是否自动提交。
-- `skipDuplicateForms`：是否跳过已提交过的重复表单。
+# 单独打开腾讯文档登录流程
+npm run lecture:login
+~~~
 
-## 隐私说明
+## 隐私与安全
 
-仓库不会提交本机登录态、腾讯文档浏览器 profile、NapCat 账号配置、WebUI token、二维码、日志和处理记录。这些文件只应保存在本机。
+以下内容不应提交到仓库：
 
-## 后续打包方向
+- QQ / NapCat 登录配置
+- 腾讯文档浏览器 profile 与 Cookie
+- WebUI Token、二维码和账号信息
+- config.json、state.json、日志与处理记录
 
-可以进一步使用 Electron 封装成桌面软件，让 Node 后端、NapCat 启动、QQ 登录、腾讯文档登录、监听状态和日志都收敛到一个窗口里。
+当前 .gitignore 已覆盖这些运行时文件。config.example.json 仅使用虚构示例，复制后请在本机填写真实信息。
+
+> 如果仓库曾提交过真实账号、学号、群号或 Token，仅删除当前文件并不能清除 Git 历史；需要另行评估历史清理与相关凭据轮换。
+
+## 已知限制
+
+- 当前主要面向 Windows 与腾讯文档表单。
+- 腾讯文档页面结构变化可能导致选择器失效。
+- 不同问卷字段命名差异较大，首次使用应通过 Dry-run 校验。
+- 请遵守群管理要求、腾讯服务条款及所在学校的报名规则。
+
+## 后续计划
+
+- Electron 桌面封装，减少环境配置步骤
+- 增加表单字段匹配测试与回归样例
+- 支持更多表单平台和可视化规则编辑
+- 增加失败任务重试与通知能力
